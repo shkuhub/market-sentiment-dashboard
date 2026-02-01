@@ -3,89 +3,107 @@
 <head>
   <meta charset="UTF-8" />
   <title>VIX Dashboard</title>
-
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-    }
-    .card {
-      border: 1px solid #ddd;
-      border-radius: 12px;
-      padding: 20px;
-      width: 320px;
-    }
-    .row {
-      margin-top: 8px;
-    }
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+    .card { border: 1px solid #ddd; border-radius: 12px; padding: 20px; width: 360px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .row { margin-top: 8px; font-size: 14px; }
+    .value { font-weight: bold; }
+    .positive { color: #d32f2f; } /* VIX 상승은 보통 시장 공포(빨강) */
+    .negative { color: #1976d2; } /* VIX 하락은 안정(파랑) */
+    .source { font-size: 12px; color: #666; margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px; }
   </style>
 </head>
-
 <body>
 
 <div class="card">
-  <h3>VIX (CBOE)</h3>
+  <h3>VIX (CBOE Volatility Index)</h3>
 
   <div class="row">
-    현재값: <span id="vix-current">—</span>
+    현재값: <span id="vix-current" class="value">로딩 중...</span>
   </div>
-
   <div class="row">
-    전일 종가: <span id="vix-prev">—</span>
+    전일 종가: <span id="vix-prev" class="value">—</span>
   </div>
-
   <div class="row">
-    금일 변동: <span id="vix-change">—</span>
+    금일 변동: <span id="vix-change" class="value">—</span>
   </div>
-
   <div class="row">
-    52주 범위: <span id="vix-52w">—</span>
+    52주 범위: <span id="vix-52w" class="value">—</span>
   </div>
 
-  <div class="row" style="font-size:12px;color:#666;margin-top:10px;">
-    Source: FRED (VIXCLS · Daily Close)
+  <div class="source">
+    Source: Yahoo Finance (via Proxy)
   </div>
 </div>
+
 <script>
-async function fetchVIX_FRED() {
-  const url =
-    "https://api.stlouisfed.org/fred/series/observations?series_id=VIXCLS&file_type=json";
-  const res = await fetch(url);
-  const json = await res.json();
+async function fetchVIX_Yahoo() {
+  // 1. Yahoo Finance API URL (VIX 심볼: ^VIX)
+  const symbol = "^VIX";
+  // range=1y: 52주 데이터를 계산하기 위해 1년치를 가져옴
+  const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1y`;
+  
+  // 2. CORS 우회를 위한 프록시 사용 (CodePen에서 필수)
+  // 'allorigins' 같은 무료 프록시를 사용해야 브라우저 차단을 피할 수 있습니다.
+  const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(yahooUrl);
 
-  const obs = json.observations
-    .filter(o => o.value !== ".")
-    .map(o => ({
-      date: o.date,
-      value: parseFloat(o.value)
-    }));
+  try {
+    const res = await fetch(proxyUrl);
+    if (!res.ok) throw new Error("네트워크 응답 실패");
+    
+    const json = await res.json();
+    const result = json.chart.result[0];
+    
+    // 데이터 추출
+    const quotes = result.indicators.quote[0];
+    const closes = quotes.close.filter(val => val !== null); // null 값 제거
+    
+    const currentPrice = result.meta.regularMarketPrice;
+    const prevClose = result.meta.chartPreviousClose;
+    
+    // 변동 계산
+    const change = currentPrice - prevClose;
+    const changePct = (change / prevClose) * 100;
 
-  const latest = obs[obs.length - 1];
-  const prev = obs[obs.length - 2];
+    // 52주(약 252 거래일) 범위 계산
+    const last252 = closes.slice(-252);
+    const low52w = Math.min(...last252);
+    const high52w = Math.max(...last252);
 
-  const last252 = obs.slice(-252).map(o => o.value);
+    return {
+      current: currentPrice,
+      prevClose: prevClose,
+      change: change,
+      changePct: changePct,
+      low52w: low52w,
+      high52w: high52w
+    };
 
-  return {
-    current: latest.value,
-    prevClose: prev.value,
-    change: latest.value - prev.value,
-    changePct: ((latest.value - prev.value) / prev.value) * 100,
-    low52w: Math.min(...last252),
-    high52w: Math.max(...last252)
-  };
+  } catch (error) {
+    console.error("데이터 가져오기 실패:", error);
+    return null;
+  }
 }
 
-fetchVIX_FRED().then(vix => {
-  document.getElementById("vix-current").textContent =
-    vix.current.toFixed(2);
+// UI 업데이트 실행
+fetchVIX_Yahoo().then(vix => {
+  if (!vix) {
+    document.getElementById("vix-current").textContent = "에러 발생";
+    return;
+  }
 
-  document.getElementById("vix-prev").textContent =
-    vix.prevClose.toFixed(2);
+  // 숫자 포맷팅
+  document.getElementById("vix-current").textContent = vix.current.toFixed(2);
+  document.getElementById("vix-prev").textContent = vix.prevClose.toFixed(2);
+  
+  const changeEl = document.getElementById("vix-change");
+  const sign = vix.change >= 0 ? "+" : "";
+  changeEl.textContent = `${sign}${vix.change.toFixed(2)} (${sign}${vix.changePct.toFixed(2)}%)`;
+  
+  // 색상 처리 (상승: 빨강, 하락: 파랑)
+  changeEl.className = "value " + (vix.change >= 0 ? "positive" : "negative");
 
-  document.getElementById("vix-change").textContent =
-    `${vix.change >= 0 ? "+" : ""}${vix.change.toFixed(2)} (${vix.changePct.toFixed(2)}%)`;
-
-  document.getElementById("vix-52w").textContent =
+  document.getElementById("vix-52w").textContent = 
     `${vix.low52w.toFixed(2)} ~ ${vix.high52w.toFixed(2)}`;
 });
 </script>
