@@ -1,39 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>VIX</title>
+  <meta charset="UTF-8" />
+  <title>VIX Index</title>
   <style>
     body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      font-size: 48px;
-      font-weight: 600;
+      font-family: Arial, sans-serif;
+      font-size: 32px;
+      padding: 20px;
     }
   </style>
 </head>
 <body>
-  <div id="vix">Loading...</div>
 
-  <script>
-    const API_KEY = "";
+  <div id="vix-widget"></div>
 
-    fetch(`https://www.alphavantage.co/query?function=VIX&interval=daily&apikey=${API_KEY}`)
-      .then(res => res.json())
-      .then(data => {
-        const series = data["Time Series (Daily)"];
-        const latestDate = Object.keys(series)[0];
-        const vix = series[latestDate]["4. close"];
-        document.getElementById("vix").innerText = `VIX: ${vix}`;
-      })
-      .catch(err => {
-        document.getElementById("vix").innerText = "Error";
-        console.error(err);
-      });
+  <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-info.js" async>
+  {
+    "symbol": "CBOE:VIX",
+    "width": "100%",
+    "locale": "en",
+    "colorTheme": "light",
+    "isTransparent": true
+  }
   </script>
+
 </body>
 </html>
