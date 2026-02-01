@@ -1,33 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>VIX Index</title>
+  <meta charset="UTF-8">
+  <title>VIX</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      font-size: 32px;
-      padding: 20px;
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      font-size: 48px;
+      font-weight: 600;
     }
   </style>
 </head>
 <body>
-  <div id="vix">Loading VIX...</div>
+  <div id="vix">Loading...</div>
 
   <script>
-    const VIX_URL =
-      "https://corsproxy.io/?https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX_History.csv";
+    const API_KEY = "여기에_네_API_KEY";
 
-    fetch(VIX_URL)
-      .then(res => res.text())
-      .then(csv => {
-        const lines = csv.trim().split("\n");
-        const latest = lines[lines.length - 1].split(",");
-        const vix = latest[4];
+    fetch(`https://www.alphavantage.co/query?function=VIX&interval=daily&apikey=${API_KEY}`)
+      .then(res => res.json())
+      .then(data => {
+        const series = data["Time Series (Daily)"];
+        const latestDate = Object.keys(series)[0];
+        const vix = series[latestDate]["4. close"];
         document.getElementById("vix").innerText = `VIX: ${vix}`;
       })
-      .catch(() => {
-        document.getElementById("vix").innerText = "Failed to load VIX";
+      .catch(err => {
+        document.getElementById("vix").innerText = "Error";
+        console.error(err);
       });
   </script>
 </body>
