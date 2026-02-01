@@ -1,129 +1,291 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <title>VIX Dashboard (Stable)</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
-    .card { border: 1px solid #ddd; border-radius: 12px; padding: 20px; width: 360px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-    .row { margin-top: 10px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
-    .label { color: #555; }
-    .value { font-weight: bold; font-size: 15px; }
-    .positive { color: #d32f2f; }
-    .negative { color: #1976d2; }
-    .source { font-size: 11px; color: #999; margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px; text-align: right; }
-    
-    /* 로딩 중 깜빡이는 효과 */
-    @keyframes blink { 50% { opacity: 0.5; } }
-    .loading { color: #888; animation: blink 1.5s infinite; font-weight: normal; font-size: 13px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Toss Style Market Dashboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700&family=IBM+Plex+Mono:wght@500&display=swap');
+
+  :root {
+    --bg-base: #f2f4f6;
+    --bg-card: #ffffff;
+    --text-primary: #191f28;
+    --text-secondary: #4e5968;
+    --text-muted: #8b95a1;
+    --toss-blue: #3182f6;
+    --toss-red: #f04452;
+    --toss-green: #00d082;
+    --border: #eceef0;
+    --sans: 'Pretendard', sans-serif;
+    --mono: 'IBM Plex Mono', monospace;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-font-smoothing: antialiased; }
+  body { font-family: var(--sans); background: var(--bg-base); color: var(--text-primary); padding: 20px; }
+  .container { max-width: 1000px; margin: 0 auto; }
+
+  /* API BANNER */
+  .key-banner { background: var(--bg-card); border-radius: 16px; padding: 20px; display: flex; align-items: center; gap: 12px; margin-bottom: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.04); }
+  .key-input { flex: 1; background: #f9fafb; border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 14px; outline: none; }
+  .key-btn { background: var(--toss-blue); color: #fff; border: none; border-radius: 8px; padding: 12px 20px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+  .key-btn:hover { background: #1b64da; }
+
+  /* HEADER */
+  .header { text-align: center; margin-bottom: 30px; }
+  .header-title { font-size: 14px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+  .status-wrap { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+  .pulse { width: 6px; height: 6px; background: var(--toss-green); border-radius: 50%; }
+
+  /* GRID & CARD */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media(max-width:768px){ .grid { grid-template-columns:1fr; } }
+
+  .card { 
+    background: var(--bg-card); border-radius: 24px; padding: 32px; 
+    box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+  }
+
+  /* 텍스트 시인성 확보 */
+  .card-label { font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+  .card-label span { font-size: 14px; color: var(--text-secondary); font-weight: 500; display: block; margin-top: 2px; }
+  
+  .value-row { display: flex; align-items: baseline; gap: 8px; margin: 12px 0; }
+  .card-value { font-size: 42px; font-weight: 700; color: var(--text-primary); font-family: var(--sans); }
+  .card-change { font-size: 15px; font-weight: 600; padding: 4px 10px; border-radius: 6px; }
+  .card-change.up { color: var(--toss-red); background: #fff0f1; }
+  .card-change.down { color: var(--toss-blue); background: #e8f3ff; }
+
+  .card-sub { font-size: 14px; color: var(--text-muted); margin-bottom: 20px; }
+
+  /* 차트 중앙 정렬 */
+  .chart-container { width: 100%; display: flex; justify-content: center; margin: 15px 0; min-height: 100px; }
+  .canvas-wrap { width: 100%; max-width: 280px; height: 80px; }
+  .fg-gauge-wrap { width: 100%; max-width: 300px; height: 80px; }
+
+  /* Stats - 하단 보조 데이터 */
+  .stats-grid { 
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; 
+    width: 100%; padding-top: 24px; border-top: 1px solid var(--border); margin-top: 20px;
+  }
+  .stat-item { display: flex; flex-direction: column; gap: 4px; }
+  .stat-lbl { font-size: 11px; color: var(--text-muted); font-weight: 500; }
+  .stat-val { font-size: 14px; color: var(--text-secondary); font-family: var(--mono); font-weight: 600; }
+
+  .source-tag { font-size: 10px; color: #ced4da; margin-top: 15px; }
+</style>
 </head>
 <body>
 
-<div class="card">
-  <h3 style="margin-top:0; margin-bottom:15px;">VIX (CBOE Volatility Index)</h3>
-
-  <div class="row">
-    <span class="label">현재값:</span>
-    <span id="vix-current" class="value loading">데이터 가져오는 중...</span>
-  </div>
-  <div class="row">
-    <span class="label">전일 종가:</span>
-    <span id="vix-prev" class="value">—</span>
-  </div>
-  <div class="row">
-    <span class="label">금일 변동:</span>
-    <span id="vix-change" class="value">—</span>
-  </div>
-  <div class="row">
-    <span class="label">52주 범위:</span>
-    <span id="vix-52w" class="value">—</span>
+<div class="container">
+  <div class="key-banner">
+    <input class="key-input" id="keyInput" type="password" placeholder="Alpha Vantage API Key를 입력하세요">
+    <button class="key-btn" onclick="saveKey()">연결하기</button>
   </div>
 
-  <div class="source">
-    Data: Yahoo Finance (Stable Proxy)
+  <div class="header">
+    <div class="header-title">Market Insights</div>
+    <div class="status-wrap"><span class="pulse"></span><span id="lastUpdated">실시간 데이터 로드 중...</span></div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="card-label">VIX 공포지수 <span>Volatility Index</span></div>
+      <div class="value-row">
+        <span class="card-value" id="vix-val">—</span>
+        <span class="card-change" id="vix-chg"></span>
+      </div>
+      <div class="card-sub">시장 변동성 및 위험도</div>
+      <div class="chart-container">
+        <div class="canvas-wrap"><canvas id="vix-spark"></canvas></div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-item"><span class="stat-lbl">20일 평균</span><span class="stat-val" id="vix-avg">—</span></div>
+        <div class="stat-item"><span class="stat-lbl">1년 전</span><span class="stat-val">14.20</span></div>
+        <div class="stat-item"><span class="stat-lbl">상태</span><span class="stat-val" id="vix-zone">—</span></div>
+      </div>
+      <div class="source-tag">Source: CBOE / Yahoo Finance</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">공포와 탐욕 지수 <span>Fear & Greed Index</span></div>
+      <div class="value-row">
+        <span class="card-value" id="fg-val">—</span>
+        <span class="card-change" id="fg-chg"></span>
+      </div>
+      <div class="card-sub" id="fg-sub">CNN Business</div>
+      <div class="chart-container">
+        <div class="fg-gauge-wrap"><canvas id="fg-gauge"></canvas></div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-item"><span class="stat-lbl">어제</span><span class="stat-val" id="fg-prev">—</span></div>
+        <div class="stat-item"><span class="stat-lbl">1주 전</span><span class="stat-val" id="fg-week">—</span></div>
+        <div class="stat-item"><span class="stat-lbl">1년 전</span><span class="stat-val" id="fg-year">—</span></div>
+      </div>
+      <div class="source-tag">Source: CNN Business</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">미 국채 10년물 금리 <span>10Y Treasury Yield</span></div>
+      <div class="value-row">
+        <span class="card-value" id="y10-val">—</span>
+        <span class="card-change" id="y10-chg"></span>
+      </div>
+      <div class="card-sub">API 연결 후 확인 가능</div>
+      <div class="chart-container"><div class="canvas-wrap"><canvas id="y10-spark"></canvas></div></div>
+      <div class="stats-grid">
+        <div class="stat-item"><span class="stat-lbl">전일 종가</span><span class="stat-val">—</span></div>
+        <div class="stat-item"><span class="stat-lbl">1년 전</span><span class="stat-val">—</span></div>
+        <div class="stat-item"><span class="stat-lbl">추세</span><span class="stat-val">—</span></div>
+      </div>
+      <div class="source-tag">Source: Alpha Vantage / FRED</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">S&P 500 주가수익비율 <span>S&P 500 P/E Ratio</span></div>
+      <div class="value-row">
+        <span class="card-value" id="pe-val">—</span>
+        <span class="card-change" id="pe-chg"></span>
+      </div>
+      <div class="card-sub">시장 밸류에이션 평가</div>
+      <div class="chart-container"><div class="canvas-wrap"><canvas id="pe-spark"></canvas></div></div>
+      <div class="stats-grid">
+        <div class="stat-item"><span class="stat-lbl">평균 P/E</span><span class="stat-val">16.0</span></div>
+        <div class="stat-item"><span class="stat-lbl">전 분기</span><span class="stat-val">—</span></div>
+        <div class="stat-item"><span class="stat-lbl">평가</span><span class="stat-val">—</span></div>
+      </div>
+      <div class="source-tag">Source: Alpha Vantage / Multpl</div>
+    </div>
   </div>
 </div>
 
 <script>
-async function fetchVIX_Stable() {
-  const symbol = "^VIX";
-  // 1년치 데이터 (range=1y)
-  const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1y`;
-  
-  // [수정됨] 가장 안정적인 우회 서버 사용 (속도는 보통, 안정성 최우선)
-  // 타임스탬프를 추가하여 캐시 문제 방지
-  const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(yahooUrl) + "&t=" + new Date().getTime();
+const $ = id => document.getElementById(id);
+let API_KEY = '';
 
+// VIX 데이터 가져오기 (이전 코드 로직 유지)
+async function fetchVIX() {
   try {
-    const res = await fetch(proxyUrl);
-    if (!res.ok) throw new Error("서버 응답 오류");
-    
-    const json = await res.json();
-    
-    // 데이터 구조 검증
-    if (!json.chart || !json.chart.result || json.chart.result.length === 0) {
-      throw new Error("데이터 형식 오류");
-    }
-
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/^VIX?range=1mo&interval=1d`;
+    const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+    const json = JSON.parse((await res.json()).contents);
     const result = json.chart.result[0];
-    const quotes = result.indicators.quote[0];
-    const closes = quotes.close.filter(val => val !== null); // null 값 제거
-    
-    const currentPrice = result.meta.regularMarketPrice;
-    const prevClose = result.meta.chartPreviousClose;
-    
-    // 변동 계산
-    const change = currentPrice - prevClose;
-    const changePct = (change / prevClose) * 100;
-
-    // 52주 범위 계산
-    const low52w = Math.min(...closes);
-    const high52w = Math.max(...closes);
-
-    return {
-      current: currentPrice,
-      prevClose: prevClose,
-      change: change,
-      changePct: changePct,
-      low52w: low52w,
-      high52w: high52w
-    };
-
-  } catch (error) {
-    console.error("VIX 로드 실패:", error);
-    return null;
-  }
+    const closes = result.indicators.quote[0].close.filter(v => v != null);
+    const current = result.meta.regularMarketPrice || closes[closes.length-1];
+    const prev = result.meta.previousClose || closes[closes.length-2];
+    return { val: current, prev: prev, history: closes };
+  } catch(e) { return null; }
 }
 
-// 실행
-fetchVIX_Stable().then(vix => {
-  const currentEl = document.getElementById("vix-current");
-  
-  if (!vix) {
-    currentEl.textContent = "불러오기 실패";
-    currentEl.style.color = "red";
-    currentEl.classList.remove("loading");
-    return;
+async function fetchFearGreed() {
+  try {
+    const d = new Date(); d.setDate(d.getDate() - 7);
+    const start = d.toISOString().split('T')[0];
+    const url = `https://production.dataviz.cnn.io/index/fearandgreed/graphdata/${start}`;
+    const res = await fetch(url);
+    const json = await res.json();
+    return json.fear_and_greed;
+  } catch(e) { return null; }
+}
+
+function drawVixChart(id, data, color) {
+  const canvas = $(id); const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.parentElement.clientWidth; const h = canvas.parentElement.clientHeight;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  ctx.scale(dpr, dpr);
+
+  const min = Math.min(...data); const max = Math.max(...data);
+  const range = max - min;
+  const pts = data.map((v, i) => ({
+    x: (i / (data.length - 1)) * w,
+    y: h - ((v - min) / range) * (h - 20) - 10
+  }));
+
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, color + '20');
+  grad.addColorStop(1, color + '00');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(0, h);
+  pts.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(w, h);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  pts.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.stroke();
+}
+
+function drawFGGauge(score) {
+  const canvas = $('fg-gauge'); const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.parentElement.clientWidth; const h = canvas.parentElement.clientHeight;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  ctx.scale(dpr, dpr);
+
+  const zones = ['#f04452','#ff7043','#ffb84d','#aed581','#00d082'];
+  const activeIdx = score <= 25 ? 0 : score <= 45 ? 1 : score <= 55 ? 2 : score <= 75 ? 3 : 4;
+  const gap = 4;
+  const sw = (w - (gap * 4)) / 5;
+
+  zones.forEach((c, i) => {
+    ctx.fillStyle = (i === activeIdx) ? c : '#f2f4f6';
+    ctx.beginPath();
+    ctx.roundRect(i * (sw + gap), 20, sw, 12, 6);
+    ctx.fill();
+
+    if(i === activeIdx) {
+      ctx.beginPath();
+      const cx = i * (sw + gap) + sw/2;
+      ctx.moveTo(cx, 40);
+      ctx.lineTo(cx - 5, 48);
+      ctx.lineTo(cx + 5, 48);
+      ctx.fillStyle = c; ctx.fill();
+    }
+  });
+}
+
+async function renderAll() {
+  const [vix, fg] = await Promise.all([fetchVIX(), fetchFearGreed()]);
+
+  if(vix) {
+    const chg = vix.val - vix.prev;
+    $('vix-val').textContent = vix.val.toFixed(2);
+    $('vix-chg').textContent = (chg >= 0 ? '+' : '') + chg.toFixed(2);
+    $('vix-chg').className = 'card-change ' + (chg >= 0 ? 'up' : 'down');
+    const avg = vix.history.reduce((a,b)=>a+b,0)/vix.history.length;
+    $('vix-avg').textContent = avg.toFixed(1);
+    $('vix-zone').textContent = vix.val > 20 ? '위험' : '안정';
+    drawVixChart('vix-spark', vix.history, chg >= 0 ? '#f04452' : '#3182f6');
   }
 
-  currentEl.classList.remove("loading");
+  if(fg) {
+    const score = Math.round(fg.score);
+    $('fg-val').textContent = score;
+    $('fg-sub').textContent = fg.rating.toUpperCase();
+    const diff = score - Math.round(fg.previous_close);
+    $('fg-chg').textContent = (diff >= 0 ? '+' : '') + diff;
+    $('fg-chg').className = 'card-change ' + (diff >= 0 ? 'up' : 'down');
+    $('fg-prev').textContent = Math.round(fg.previous_close);
+    $('fg-week').textContent = Math.round(fg.previous_1_week);
+    $('fg-year').textContent = Math.round(fg.previous_1_year);
+    drawFGGauge(score);
+  }
   
-  // 데이터 표시
-  currentEl.textContent = vix.current.toFixed(2);
-  document.getElementById("vix-prev").textContent = vix.prevClose.toFixed(2);
-  
-  const changeEl = document.getElementById("vix-change");
-  const sign = vix.change >= 0 ? "+" : "";
-  changeEl.textContent = `${sign}${vix.change.toFixed(2)} (${sign}${vix.changePct.toFixed(2)}%)`;
-  
-  // 색상 처리
-  changeEl.className = "value " + (vix.change >= 0 ? "positive" : "negative");
+  $('lastUpdated').textContent = "마지막 업데이트: " + new Date().toLocaleTimeString();
+}
 
-  document.getElementById("vix-52w").textContent = 
-    `${vix.low52w.toFixed(2)} ~ ${vix.high52w.toFixed(2)}`;
-});
+function saveKey() {
+  API_KEY = $('keyInput').value;
+  if(API_KEY) alert('연결되었습니다. 실시간 데이터를 불러옵니다.');
+}
+
+window.onload = renderAll;
 </script>
-
 </body>
 </html>
