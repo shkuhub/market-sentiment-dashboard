@@ -1,35 +1,93 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>VIX Index</title>
+  <title>VIX Dashboard</title>
+
   <style>
     body {
-      margin: 0;
-      background: white;
       font-family: Arial, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
+      padding: 20px;
+    }
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      padding: 20px;
+      width: 320px;
+    }
+    .row {
+      margin-top: 8px;
     }
   </style>
 </head>
+
 <body>
 
-<!-- TradingView VIX 숫자 위젯 -->
-<div class="tradingview-widget-container">
-  <div class="tradingview-widget-container__widget"></div>
-</div>
+<div class="card">
+  <h3>VIX (CBOE)</h3>
 
-<script src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-info.js">
-{
-  "symbol": "CBOE:VIX",
-  "width": "100%",
-  "locale": "en",
-  "colorTheme": "light",
-  "isTransparent": true
+  <div class="row">
+    현재값: <span id="vix-current">—</span>
+  </div>
+
+  <div class="row">
+    전일 종가: <span id="vix-prev">—</span>
+  </div>
+
+  <div class="row">
+    금일 변동: <span id="vix-change">—</span>
+  </div>
+
+  <div class="row">
+    52주 범위: <span id="vix-52w">—</span>
+  </div>
+
+  <div class="row" style="font-size:12px;color:#666;margin-top:10px;">
+    Source: FRED (VIXCLS · Daily Close)
+  </div>
+</div>
+<script>
+async function fetchVIX_FRED() {
+  const url =
+    "https://api.stlouisfed.org/fred/series/observations?series_id=VIXCLS&file_type=json";
+  const res = await fetch(url);
+  const json = await res.json();
+
+  const obs = json.observations
+    .filter(o => o.value !== ".")
+    .map(o => ({
+      date: o.date,
+      value: parseFloat(o.value)
+    }));
+
+  const latest = obs[obs.length - 1];
+  const prev = obs[obs.length - 2];
+
+  const last252 = obs.slice(-252).map(o => o.value);
+
+  return {
+    current: latest.value,
+    prevClose: prev.value,
+    change: latest.value - prev.value,
+    changePct: ((latest.value - prev.value) / prev.value) * 100,
+    low52w: Math.min(...last252),
+    high52w: Math.max(...last252)
+  };
 }
+
+fetchVIX_FRED().then(vix => {
+  document.getElementById("vix-current").textContent =
+    vix.current.toFixed(2);
+
+  document.getElementById("vix-prev").textContent =
+    vix.prevClose.toFixed(2);
+
+  document.getElementById("vix-change").textContent =
+    `${vix.change >= 0 ? "+" : ""}${vix.change.toFixed(2)} (${vix.changePct.toFixed(2)}%)`;
+
+  document.getElementById("vix-52w").textContent =
+    `${vix.low52w.toFixed(2)} ~ ${vix.high52w.toFixed(2)}`;
+});
 </script>
 
 </body>
